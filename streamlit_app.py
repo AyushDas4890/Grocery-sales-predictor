@@ -20,33 +20,38 @@ st.markdown("""
     <style>
     /* Main Background & Fonts */
     .stApp {
-        background: linear-gradient(to right bottom, #f8f9fa, #e9ecef);
+        background-color: #f8f9fa;
         font-family: 'Inter', sans-serif;
     }
     
-    /* Headings */
-    h1, h2, h3 {
-        color: #1a202c;
+    /* Headings - Force Dark Color */
+    h1, h2, h3, .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
+        color: #1a202c !important;
         font-weight: 700;
         letter-spacing: -0.5px;
     }
     
+    /* Text - Force Dark Color */
+    p, .stMarkdown p {
+        color: #4a5568 !important;
+    }
+
     /* Cards/Metrics */
     .metric-card {
         background: white;
         padding: 20px;
         border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         border: 1px solid #e2e8f0;
         text-align: center;
     }
     .metric-value {
         font-size: 2rem;
         font-weight: 700;
-        color: #2b6cb0;
+        color: #2b6cb0 !important;
     }
     .metric-label {
-        color: #718096;
+        color: #718096 !important;
         font-size: 0.875rem;
         text-transform: uppercase;
         letter-spacing: 1px;
@@ -56,7 +61,7 @@ st.markdown("""
     .stButton>button {
         width: 100%;
         background-color: #2b6cb0;
-        color: white;
+        color: white !important;
         border-radius: 8px;
         height: 48px;
         font-weight: 600;
@@ -66,12 +71,13 @@ st.markdown("""
     .stButton>button:hover {
         background-color: #2c5282;
         box-shadow: 0 4px 12px rgba(43, 108, 176, 0.3);
+        color: white !important;
     }
     
     /* Prediction Box */
     .prediction-box-high {
         background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-        color: white;
+        color: white !important;
         padding: 30px;
         border-radius: 16px;
         text-align: center;
@@ -79,11 +85,16 @@ st.markdown("""
     }
     .prediction-box-low {
         background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
-        color: white;
+        color: white !important;
         padding: 30px;
         border-radius: 16px;
         text-align: center;
         box-shadow: 0 10px 25px -5px rgba(239, 68, 68, 0.4);
+    }
+    
+    /* Fix for Plotly Chart Background */
+    .js-plotly-plot .plotly .main-svg {
+        background: rgba(0,0,0,0) !important;
     }
     </style>
 """, unsafe_allow_html=True)

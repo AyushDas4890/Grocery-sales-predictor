@@ -261,7 +261,7 @@ try:
         xaxis=dict(showgrid=False),
         yaxis=dict(showgrid=True, gridcolor='#e2e8f0')
     )
-    fig.update_traces(line_color='#2b6cb0', fill_color='rgba(43, 108, 176, 0.1)')
+    fig.update_traces(line_color='#2b6cb0', fillcolor='rgba(43, 108, 176, 0.1)')
     st.plotly_chart(fig, use_container_width=True)
 
     if st.session_state.get('show_data'):

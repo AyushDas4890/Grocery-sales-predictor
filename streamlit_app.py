@@ -293,47 +293,64 @@ try:
             season_code = get_season(month)
 
             # ---------------------------------------------------------
-            # Dynamic Feature Generation vs Static History
+            # Historical Parallel Mapping (No Synthetic Data)
             # ---------------------------------------------------------
-            # Problem: If we just use daily_sales.tail(30), every future prediction 
-            # sees the exact same "recent sales" from the end of the dataset.
-            # Solution: We simulate "recent history" based on the historical average 
-            # for the *target month and day of week*.
+            # To avoid "hallucinating" random numbers, we use actual historical records.
+            # We find a date in the past that closely matches the target date's 
+            # seasonality (Month) and Day of Week.
             
-            # 1. Calculate seasonal baseline
-            historical_month_stats = daily_sales[daily_sales['Date'].dt.month == month]['Sales_Count'].describe()
-            historical_mean = historical_month_stats['mean']
-            historical_std = historical_month_stats['std']
+            # 1. Filter history for same Month and Day of Week
+            same_mo_dow = daily_sales[
+                (daily_sales['Date'].dt.month == month) & 
+                (daily_sales['Date'].dt.day_of_week == day_of_week)
+            ]
             
-            if np.isnan(historical_std): historical_std = 5 # fallback
+            # 2. If matches found, take the most recent one. Else fallback to same Month only.
+            if not same_mo_dow.empty:
+                proxy_date = same_mo_dow['Date'].max()
+            else:
+                # Fallback: Just same month
+                same_mo = daily_sales[daily_sales['Date'].dt.month == month]
+                if not same_mo.empty:
+                    proxy_date = same_mo['Date'].max()
+                else:
+                    # Fallback: Last available date in dataset
+                    proxy_date = daily_sales['Date'].max()
             
-            # 2. Add specific day-of-week bias
-            dow_stats = daily_sales[daily_sales['Date'].dt.dayofweek == day_of_week]['Sales_Count'].mean()
-            dow_bias = dow_stats - daily_sales['Sales_Count'].mean()
+            # 3. Get the Sales/Lags associated with that REAL historical date
+            # We essentially say "The market conditions for [Target Date] will be similar to [Proxy Date]"
             
-            # 3. Generate synthetic "recent past" (last 30 days) for the target date
-            # Centered around the historical average for this time of year
-            np.random.seed(diff_seed := int(target_date.strftime('%Y%m%d'))) # Seed based on date so it's consistent for same date
+            # We need to find the index of this proxy date to get its rolling stats/lags
+            proxy_idx = daily_sales[daily_sales['Date'] == proxy_date].index[0]
             
-            synthetic_base = historical_mean + dow_bias
-            synthetic_sales_values = np.random.normal(synthetic_base, historical_std, 30)
+            # We can't just take the row because we need to re-calculate features if we wanted to be 100% precise,
+            # but picking the pre-calculated features for that date is the most grounded approach.
+            # However, our daily_sales df here only has 'Sales_Count'. We need to re-derive features.
             
-            # Ensure non-negative
-            synthetic_sales_values = np.maximum(synthetic_sales_values, 0)
-            
-            # Use these synthetic values for lags/rolling instead of static tail
-            sales_values = synthetic_sales_values
+            # Let's get the slice of data leading up to that proxy date
+            # Ensure we have enough history before the proxy date
+            if proxy_idx < 30:
+                recent_data_proxy = daily_sales.iloc[0 : proxy_idx+1]
+            else:
+                recent_data_proxy = daily_sales.iloc[proxy_idx-30 : proxy_idx+1]
+                
+            sales_values = recent_data_proxy['Sales_Count'].values
             
             lags = {}
             for lag in [1, 2, 3, 4, 5, 6, 7, 14]:
-                # Use synthetic history
-                valid_lag = sales_values[-lag] if len(sales_values) >= lag else sales_values[-1]
+                valid_lag = sales_values[-lag-1] if len(sales_values) > lag else sales_values[0]
                 lags[f'Sales_Lag_{lag}'] = valid_lag
                 
             rolling_stats = {}
             for window in [3, 7, 14, 30]:
-                rolling_stats[f'Rolling_Mean_{window}'] = np.mean(sales_values[-window:])
-                rolling_stats[f'Rolling_Std_{window}'] = np.std(sales_values[-window:])
+                # Rolling stat up to the day BEFORE the proxy date (since we are predicting for the proxy date equivalent)
+                # But actually, input features for time T usually include rolling averages of T-1.
+                # So we take the window ending at -1.
+                subset = sales_values[:-1] # Exclude the target day itself
+                if len(subset) == 0: subset = [0]
+                
+                rolling_stats[f'Rolling_Mean_{window}'] = np.mean(subset[-window:])
+                rolling_stats[f'Rolling_Std_{window}'] = np.std(subset[-window:])
             
             features = {
                 'Month': month,

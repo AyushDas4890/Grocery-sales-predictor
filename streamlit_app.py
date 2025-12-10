@@ -6,6 +6,9 @@ from sklearn.ensemble import GradientBoostingClassifier
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta
+import requests
+from streamlit_lottie import st_lottie
+import os
 
 # Page Configuration
 st.set_page_config(
@@ -32,7 +35,7 @@ st.markdown("""
     }
     
     /* Text - Force Dark Color */
-    p, .stMarkdown p {
+    p, .stMarkdown p, li, .stMarkdown li {
         color: #4a5568 !important;
     }
 
@@ -44,6 +47,11 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         border: 1px solid #e2e8f0;
         text-align: center;
+        transition: transform 0.2s;
+    }
+    .metric-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 15px rgba(0,0,0,0.1);
     }
     .metric-value {
         font-size: 2rem;
@@ -74,34 +82,30 @@ st.markdown("""
         color: white !important;
     }
     
-    /* Prediction Box */
-    .prediction-box-high {
-        background: linear-gradient(135deg, #10B981 0%, #059669 100%);
-        color: white !important;
-        padding: 30px;
-        border-radius: 16px;
-        text-align: center;
-        box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.4);
-    }
-    .prediction-box-low {
-        background: linear-gradient(135deg, #EF4444 0%, #DC2626 100%);
-        color: white !important;
-        padding: 30px;
-        border-radius: 16px;
-        text-align: center;
-        box-shadow: 0 10px 25px -5px rgba(239, 68, 68, 0.4);
-    }
-    
     /* Fix for Plotly Chart Background */
     .js-plotly-plot .plotly .main-svg {
         background: rgba(0,0,0,0) !important;
+    }
+    
+    /* Banner Image */
+    .hero-banner {
+        width: 100%;
+        border-radius: 15px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        margin-bottom: 20px;
     }
     </style>
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# Data Loading & Processing Functions
+# Helper Functions
 # -----------------------------------------------------------------------------
+
+def load_lottieurl(url: str):
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+    return r.json()
 
 @st.cache_data
 def load_data(file_path):
@@ -119,6 +123,10 @@ def get_season(month):
     elif month in [3, 4, 5]: return 2 # Spring
     elif month in [6, 7, 8]: return 1 # Summer
     else: return 0 # Fall
+
+def get_season_name(season_code):
+    seasons = {3: 'Winter ❄️', 2: 'Spring 🌸', 1: 'Summer ☀️', 0: 'Fall 🍂'}
+    return seasons.get(season_code, 'Unknown')
 
 @st.cache_resource
 def train_model(daily_sales):
@@ -179,8 +187,8 @@ def train_model(daily_sales):
 
 # Sidebar
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/3759/3759997.png", width=80) 
-    st.title("Settings")
+    st.image("https://cdn-icons-png.flaticon.com/512/3759/3759997.png", width=60) 
+    st.title("Grocery AI")
     
     st.markdown("### 🛠 Configuration")
     data_file = "Groceries_dataset.csv"
@@ -189,28 +197,47 @@ with st.sidebar:
         st.session_state['show_data'] = True
     else:
         st.session_state['show_data'] = False
-        
-    st.info("Uses Gradient Boosting Classifier for prediction.")
+    
     st.write("---")
-    st.caption("v1.0.0 | RetailPulse AI")
+    
+    # Simple logic for sidebar animation
+    lottie_sidebar = load_lottieurl("https://assets9.lottiefiles.com/packages/lf20_5nzkkqwe.json")
+    if lottie_sidebar:
+        st_lottie(lottie_sidebar, height=150, key="sidebar_anim")
+        
+    st.info("Gradient Boosting Model Active")
+    st.caption("v2.0.0 | RetailPulse AI")
 
 # Main Content
+# Header Image
+if os.path.exists("banner.png"):
+    st.image("banner.png", use_container_width=True, output_format="PNG", caption=None)
+else:
+    # Fallback to a placeholder gradient div if image not found
+    st.markdown("""<div style='background: linear-gradient(90deg, #2b6cb0 0%, #2c5282 100%); padding: 20px; border-radius: 10px; color: white; margin-bottom: 20px;'><h1>Grocery Sales AI</h1></div>""", unsafe_allow_html=True)
+
+
 col1, col2 = st.columns([3, 1])
 with col1:
-    st.title("Grocery Sales Predictor")
-    st.markdown("Forecast daily demand levels with precision using AI.")
+    st.title("Demand Forecast Dashboard")
+    st.markdown("Leverage AI to predict daily sales demand with high precision. Optimize your inventory today.")
+
+with col2:
+    # Small animation next to title
+    lottie_cart = load_lottieurl("https://assets5.lottiefiles.com/packages/lf20_V9t630.json") 
+    if lottie_cart:
+        st_lottie(lottie_cart, height=100, key="cart_anim")
 
 # Load Data & Train
 try:
-    with st.spinner("Initializing AI Engine..."):
+    with st.spinner("Crunching numbers & Training AI..."):
         daily_sales = load_data(data_file)
         model, scaler, feature_cols, threshold, le = train_model(daily_sales)
         
         last_date = daily_sales['Date'].max()
-        start_date = daily_sales['Date'].min()
         
     # KPIs
-    st.markdown("### 📊 Historical Overview")
+    st.markdown("### 📊 Historical Snapshot")
     kpi1, kpi2, kpi3, kpi4 = st.columns(4)
     with kpi1:
         st.markdown(f"<div class='metric-card'><div class='metric-value'>{len(daily_sales)}</div><div class='metric-label'>Total Days</div></div>", unsafe_allow_html=True)
@@ -219,13 +246,22 @@ try:
     with kpi3:
         st.markdown(f"<div class='metric-card'><div class='metric-value'>{daily_sales['Sales_Count'].max()}</div><div class='metric-label'>Peak Sales</div></div>", unsafe_allow_html=True)
     with kpi4:
-         st.markdown(f"<div class='metric-card'><div class='metric-value'>{threshold:.0f}</div><div class='metric-label'>High Demand Threshold</div></div>", unsafe_allow_html=True)
+         st.markdown(f"<div class='metric-card'><div class='metric-value'>{threshold:.0f}</div><div class='metric-label'>High Threshold</div></div>", unsafe_allow_html=True)
 
     # Chart
-    st.markdown("### 📈 Sales Trends")
-    fig = px.line(daily_sales, x='Date', y='Sales_Count', title='Daily Sales Volume')
-    fig.update_layout(xaxis_title="Date", yaxis_title="Sales Count", template="plotly_white", height=350)
-    fig.update_traces(line_color='#3182ce')
+    st.markdown("### 📈 Intelligent Trend Analysis")
+    fig = px.area(daily_sales, x='Date', y='Sales_Count', title='Sales Volume Over Time')
+    fig.update_layout(
+        xaxis_title="Date", 
+        yaxis_title="Sales Count", 
+        template="plotly_white", 
+        height=400,
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        xaxis=dict(showgrid=False),
+        yaxis=dict(showgrid=True, gridcolor='#e2e8f0')
+    )
+    fig.update_traces(line_color='#2b6cb0', fill_color='rgba(43, 108, 176, 0.1)')
     st.plotly_chart(fig, use_container_width=True)
 
     if st.session_state.get('show_data'):
@@ -233,22 +269,21 @@ try:
 
     # Prediction Interface
     st.markdown("---")
-    st.markdown("### 🔮 Future Prediction")
+    st.subheader("🔮 Predictive Analytics Engine")
     
     p_col1, p_col2 = st.columns([1, 1])
     
     with p_col1:
-        st.markdown("Select a date to forecast demand:")
+        st.markdown("##### 📅 Select Forecast Date")
         default_date = last_date + timedelta(days=1)
         target_date = st.date_input("Target Date", value=default_date, min_value=last_date + timedelta(days=1))
         
-        if st.button("Generate Forecast", use_container_width=True):
+        st.markdown("")
+        if st.button("Generate Forecast 🚀", use_container_width=True):
             # Prediction Logic
             t_date = pd.to_datetime(target_date)
             
-            # Prepare single row input
-            # Logic: We imply "persistence" of the last known stats for future dates mostly
-            # but getting the correct day/month/season is crucial.
+            # Prepare features
             month = t_date.month
             day = t_date.day
             day_of_week = t_date.dayofweek
@@ -257,7 +292,7 @@ try:
             is_weekend = 1 if day_of_week >= 5 else 0
             season_code = get_season(month)
 
-            # Get recent data for lags (naive: using last available data)
+            # Get recent data
             recent_data = daily_sales.tail(30)
             sales_values = recent_data['Sales_Count'].values
             
@@ -292,28 +327,42 @@ try:
             predicted_label = le.inverse_transform([prediction_code])[0]
             confidence = prediction_proba[prediction_code]
             
+            # Visualize Result
             with p_col2:
-                st.markdown(f"<div style='margin-top: 28px'></div>", unsafe_allow_html=True)
-                if predicted_label == 'High':
-                    st.markdown(f"""
-                        <div class='prediction-box-high'>
-                            <h2 style='color: white; margin:0'>HIGH DEMAND</h2>
-                            <p style='margin:0; opacity: 0.9'>Confidence: {confidence:.1%}</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-                else:
-                    st.markdown(f"""
-                        <div class='prediction-box-low'>
-                            <h2 style='color: white; margin:0'>LOW DEMAND</h2>
-                            <p style='margin:0; opacity: 0.9'>Confidence: {confidence:.1%}</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    
-            st.success("Prediction generated successfully.")
+                # Gauge Chart for Probability
+                fig_gauge = go.Figure(go.Indicator(
+                    mode = "gauge+number",
+                    value = confidence * 100,
+                    title = {'text': f"Prediction: {predicted_label.upper()} DEMAND"},
+                    gauge = {
+                        'axis': {'range': [0, 100]},
+                        'bar': {'color': "#10B981" if predicted_label=='High' else "#EF4444"},
+                        'steps': [
+                            {'range': [0, 50], 'color': "#f7fafc"},
+                            {'range': [50, 100], 'color': "#edf2f7"}
+                        ],
+                        'threshold': {
+                            'line': {'color': "red", 'width': 4},
+                            'thickness': 0.75,
+                            'value': 90
+                        }
+                    }
+                ))
+                fig_gauge.update_layout(height=300, margin=dict(l=20,r=20,t=50,b=20), paper_bgcolor='rgba(0,0,0,0)', font={'color': "#1a202c"})
+                st.plotly_chart(fig_gauge, use_container_width=True)
+                
+                # Context
+                st.markdown(f"**Season:** {get_season_name(season_code)}")
+                st.markdown(f"**Recent Trend (7d):** {rolling_stats['Rolling_Mean_7']:.1f} sales/day")
             
-            # Explainability
-            with st.expander("Why this result? (Feature Inputs)"):
-                st.write(features)
+            st.success("Analysis Complete.")
+            
+            with st.expander("Show Technical Feature Vector"):
+                st.json(features)
+
+    # Footer
+    st.markdown("---")
+    st.markdown("<p style='text-align: center; color: #718096 !important;'>© 2025 RetailPulse AI | Powered by Gradient Boosting</p>", unsafe_allow_html=True)
 
 except FileNotFoundError:
     st.error("Error: 'Groceries_dataset.csv' not found. Please ensure the dataset is in the same directory.")

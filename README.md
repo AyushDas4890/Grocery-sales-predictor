@@ -3,6 +3,9 @@
 ## 📌 Project Overview
 This project is a comprehensive Data Science Proof of Concept (POC) designed to predict the **Seasonal Demand Level** (High/Low) for grocery products. By leveraging historical sales data and advanced machine learning techniques, we aim to provide actionable insights for better inventory management and supply chain optimization.
 
+## 🌐 Live Application
+Access the live demand prediction dashboard here: **[Grocery Sales Predictor App](https://ayushdas4890-grocery-sales-predictor-streamlit-app-paeuog.streamlit.app/)**
+
 ## 📊 Dataset
 **File**: `Groceries_dataset.csv`
 

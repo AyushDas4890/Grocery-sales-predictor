@@ -292,12 +292,41 @@ try:
             is_weekend = 1 if day_of_week >= 5 else 0
             season_code = get_season(month)
 
-            # Get recent data
-            recent_data = daily_sales.tail(30)
-            sales_values = recent_data['Sales_Count'].values
+            # ---------------------------------------------------------
+            # Dynamic Feature Generation vs Static History
+            # ---------------------------------------------------------
+            # Problem: If we just use daily_sales.tail(30), every future prediction 
+            # sees the exact same "recent sales" from the end of the dataset.
+            # Solution: We simulate "recent history" based on the historical average 
+            # for the *target month and day of week*.
+            
+            # 1. Calculate seasonal baseline
+            historical_month_stats = daily_sales[daily_sales['Date'].dt.month == month]['Sales_Count'].describe()
+            historical_mean = historical_month_stats['mean']
+            historical_std = historical_month_stats['std']
+            
+            if np.isnan(historical_std): historical_std = 5 # fallback
+            
+            # 2. Add specific day-of-week bias
+            dow_stats = daily_sales[daily_sales['Date'].dt.dayofweek == day_of_week]['Sales_Count'].mean()
+            dow_bias = dow_stats - daily_sales['Sales_Count'].mean()
+            
+            # 3. Generate synthetic "recent past" (last 30 days) for the target date
+            # Centered around the historical average for this time of year
+            np.random.seed(diff_seed := int(target_date.strftime('%Y%m%d'))) # Seed based on date so it's consistent for same date
+            
+            synthetic_base = historical_mean + dow_bias
+            synthetic_sales_values = np.random.normal(synthetic_base, historical_std, 30)
+            
+            # Ensure non-negative
+            synthetic_sales_values = np.maximum(synthetic_sales_values, 0)
+            
+            # Use these synthetic values for lags/rolling instead of static tail
+            sales_values = synthetic_sales_values
             
             lags = {}
             for lag in [1, 2, 3, 4, 5, 6, 7, 14]:
+                # Use synthetic history
                 valid_lag = sales_values[-lag] if len(sales_values) >= lag else sales_values[-1]
                 lags[f'Sales_Lag_{lag}'] = valid_lag
                 
